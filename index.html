@@ -71,10 +71,10 @@
         mouse = {x: evt.offsetX, y: evt.offsetY};
         if (mouse_down) {
             // paint
-            let r = 100;
+            let r = 80;
             var grd = ctx2.createRadialGradient(mouse.x, mouse.y, 1, mouse.x, mouse.y, r);
 
-            grd.addColorStop(0, "rgba(0,0,255,.01)");
+            grd.addColorStop(0, "rgba(0,0,255,.02)");
             grd.addColorStop(1, "rgba(0,0,255,0)");
 
             // Fill with gradient
@@ -108,20 +108,60 @@
         return Math.floor(Math.random() * (max - min + 1)) + min;
     }
 
+    function renderPixels(pixels, container) {
+        if (pixels) {
+            container.putImageData(pixels, 0, 0);
+        }
+    }
+
+    function haveAgentEatSurroundings(agentMouthSize) {
+        let r = agentMouthSize;
+        ctx2.save();
+        ctx2.beginPath();
+        ctx2.arc(agent.x,agent.y,r,0, 2*Math.PI);
+        ctx2.clip();
+        ctx2.clearRect(0, 0, canvas.width, canvas.height);
+        ctx2.restore();
+        pixels = ctx2.getImageData(0, 0, canvas.width, canvas.height);
+    }
+
+    function generateRandomAngle() {
+        return Math.random()*Math.PI*2;
+    }
+
+    function generatePointInBand(inner, outer) {
+
+        let width = outer - inner;
+        let distance = Math.min(outer + (outer/10 * rand_normal()), inner + (width * Math.abs(rand_normal())));
+
+        let angle = generateRandomAngle();
+
+        return {x: Math.cos(angle) * distance , y: Math.sin(angle) * distance}
+    }
+
+
+    let agentMouthSize = 10;
+    let mouthToEyeRatio = 4;
+    let maxView = agentMouthSize * mouthToEyeRatio;
+
+    function wrapPosition(value, max) {
+        if (value > max) {
+            return 0 + Math.abs(value - max);
+        } 
+
+        if (value < 0 ) {
+            return max - Math.abs(value);
+        }
+
+        return value;
+    }
+
     function render() {
         window.requestAnimationFrame(render);
         ctx.clearRect(0, 0, canvas.width, canvas.height);
+        haveAgentEatSurroundings(agentMouthSize);
 
-        if (pixels) {
-            ctx.putImageData(pixels, 0, 0);
-        }
-
-        let r = 10;
-        ctx2.clearRect(agent.x - r, agent.y - r, r*2, r*2);
-        pixels = ctx2.getImageData(0, 0, canvas.width, canvas.height);
-        if (pixels) {
-            ctx.putImageData(pixels, 0, 0);
-        }
+        renderPixels(pixels, ctx);
         // border
         ctx.strokeRect(4, 4, canvas.width-8, canvas.height-8);
 
@@ -133,10 +173,17 @@
 
         for (let i = 0; i < SAMPLES; i ++) {
             // try random new point
-            let noise = {x: rand_normal() * SIGMA , y: rand_normal() * SIGMA};
+            let noise = generatePointInBand(agentMouthSize * 1.2, maxView);
+            // let noise = {x: rand_normal() * SIGMA , y:  rand_normal() * SIGMA}
             candidates.push(noise);
+            let new_point = {
+                x: Math.max(agent.x + noise.x, 0), 
+                y: Math.max(0, agent.y + noise.y)
+            };
 
-            let new_point = {x: agent.x + noise.x, y: agent.y + noise.y};
+            new_point.x = wrapPosition(new_point.x, canvas.width);
+            new_point.y = wrapPosition(new_point.y, canvas.height);
+
             ctx.fillRect(new_point.x-1, new_point.y-1, 2, 2);
 
             // see reward there
@@ -163,9 +210,19 @@
         ctx.moveTo(agent.x, agent.y);
         ctx.lineTo(agent.x + update.x, agent.y + update.y);
         ctx.stroke(); */
+        let minMovementAdjusterX = getRandomArbitrary(0, agentMouthSize);
+        let minMovementAdjusterY = getRandomArbitrary(0, agentMouthSize);
+        let deltaX = update.x * LEARN_RATE / (SAMPLES*SIGMA);
+        let deltaY = update.y * LEARN_RATE / (SAMPLES*SIGMA);
 
-        agent.x += update.x * LEARN_RATE / (SAMPLES*SIGMA);
-        agent.y += update.y * LEARN_RATE / (SAMPLES*SIGMA);
+        deltaX = deltaX *  (1 + minMovementAdjusterX);
+        deltaY = deltaY *  (1 + minMovementAdjusterY);
+
+        agent.x += deltaX;
+        agent.y += deltaY;
+
+        agent.x = wrapPosition(agent.x, canvas.width);
+        agent.y = wrapPosition(agent.y, canvas.height);
     }
 
     render();
