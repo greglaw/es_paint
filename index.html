@@ -20,10 +20,10 @@
 
     var mouse_down = false;
     var mouse = {x: 0, y: 0};
-    var agent = {x: canvas.width/2, y: canvas.height/2};
+    var agent = {x: canvas.width/2, y: canvas.height/2, delta: 0, deltaX: 0, deltaY: 0};
 
-    var SIGMA = 20;
-    var LEARN_RATE = .5;
+    var SIGMA = 10;
+    var LEARN_RATE = 1;
     var SAMPLES = 100;
 
     // pixels
@@ -71,7 +71,7 @@
         mouse = {x: evt.offsetX, y: evt.offsetY};
         if (mouse_down) {
             // paint
-            let r = 80;
+            let r = 800;
             var grd = ctx2.createRadialGradient(mouse.x, mouse.y, 1, mouse.x, mouse.y, r);
 
             grd.addColorStop(0, "rgba(0,0,255,.02)");
@@ -140,17 +140,17 @@
     }
 
 
-    let agentMouthSize = 10;
+    let agentMouthSize = 15;
     let mouthToEyeRatio = 4;
     let maxView = agentMouthSize * mouthToEyeRatio;
 
     function wrapPosition(value, max) {
-        if (value > max) {
+        if (value >= max) {
             return 0 + Math.abs(value - max);
         } 
 
-        if (value < 0 ) {
-            return max - Math.abs(value);
+        if (value <= 0 ) {
+            return max + value;
         }
 
         return value;
@@ -171,14 +171,36 @@
         let candidates = [];
         let rewards = [];
 
+        let maxViewModifier = 1 + agent.delta;
+        let minViewModifier = 1 + agent.delta;
+        // let minViewModifier = agent.delta;
+        // let minViewModifier = 1 + 1 / agent.delta;
+        // let randomMax = getRandomArbitrary(agentMouthSize, 2 * agentMouthSize);
+        // let randomMin = getRandomArbitrary(agentMouthSize, 2 * agentMouthSize);
+        // let innerBand = Math.min(
+        //             Math.max(agent.delta * randomMax, agentMouthSize / minViewModifier),
+        //             agentMouthSize
+        //         );
+        // let outerBand = Math.max(
+        //     maxView / maxViewModifier,
+        //     randomMax
+        // );
+
+        let innerBand = agentMouthSize;
+        let outerBand = maxView;
+        // SAMPLES = 100 * (1 / ( 1 + agent.delta) )
         for (let i = 0; i < SAMPLES; i ++) {
             // try random new point
-            let noise = generatePointInBand(agentMouthSize * 1.2, maxView);
+            let noise = generatePointInBand(
+                innerBand,
+                outerBand/maxViewModifier
+            );
+
             // let noise = {x: rand_normal() * SIGMA , y:  rand_normal() * SIGMA}
             candidates.push(noise);
             let new_point = {
-                x: Math.max(agent.x + noise.x, 0), 
-                y: Math.max(0, agent.y + noise.y)
+                x: agent.x + noise.x, 
+                y: agent.y + noise.y
             };
 
             new_point.x = wrapPosition(new_point.x, canvas.width);
@@ -210,14 +232,19 @@
         ctx.moveTo(agent.x, agent.y);
         ctx.lineTo(agent.x + update.x, agent.y + update.y);
         ctx.stroke(); */
-        let minMovementAdjusterX = getRandomArbitrary(0, agentMouthSize);
-        let minMovementAdjusterY = getRandomArbitrary(0, agentMouthSize);
+        // let minMovementAdjusterX = getRandomInt(0, agentMouthSize / (Math.max(.5, agent.deltaX )));
+        // let minMovementAdjusterY = getRandomInt(0, agentMouthSize / (Math.max(.5, agent.deltaY)));
+        // let minMovementAdjusterX = getRandomInt(0, agent.deltaX + agentMouthSize/2);
+        // let minMovementAdjusterY = getRandomInt(0, agent.deltaY + agentMouthSize/2);
         let deltaX = update.x * LEARN_RATE / (SAMPLES*SIGMA);
         let deltaY = update.y * LEARN_RATE / (SAMPLES*SIGMA);
 
-        deltaX = deltaX *  (1 + minMovementAdjusterX);
-        deltaY = deltaY *  (1 + minMovementAdjusterY);
+        deltaX = deltaX * (agent.deltaX + 1);
+        deltaY = deltaY * (agent.deltaY + 1);
+        agent.deltaX = deltaX;
+        agent.deltaY = deltaY;
 
+        agent.delta = Math.abs(deltaX) + Math.abs(deltaY);
         agent.x += deltaX;
         agent.y += deltaY;
 
