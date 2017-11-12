@@ -88,7 +88,24 @@
     function rand_normal() {
         var u = 1 - Math.random(); // Subtraction to flip [0, 1) to (0, 1].
         var v = 1 - Math.random();
+
         return Math.sqrt( -2.0 * Math.log( u ) ) * Math.cos( 2.0 * Math.PI * v );
+    }
+
+    /**
+     * Returns a random number between min (inclusive) and max (exclusive)
+     */
+    function getRandomArbitrary(min, max) {
+        return Math.random() * (max - min) + min;
+    }
+
+    /**
+     * Returns a random integer between min (inclusive) and max (inclusive)
+     * Using Math.round() will give you a non-uniform distribution!
+     * I plan to explore applications of these to change the view of the agent
+     */
+    function getRandomInt(min, max) {
+        return Math.floor(Math.random() * (max - min + 1)) + min;
     }
 
     function render() {
@@ -99,22 +116,24 @@
             ctx.putImageData(pixels, 0, 0);
         }
 
+        let r = 10;
+        ctx2.clearRect(agent.x - r, agent.y - r, r*2, r*2);
+        pixels = ctx2.getImageData(0, 0, canvas.width, canvas.height);
+        if (pixels) {
+            ctx.putImageData(pixels, 0, 0);
+        }
         // border
         ctx.strokeRect(4, 4, canvas.width-8, canvas.height-8);
 
         ctx.fillStyle = "#000000";
         ctx.fillRect(agent.x-5, agent.y-5, 10, 10);
 
-        if (pixels) {
-            
-        }
-
         let candidates = [];
         let rewards = [];
 
         for (let i = 0; i < SAMPLES; i ++) {
             // try random new point
-            let noise = {x: rand_normal() * SIGMA, y: rand_normal() * SIGMA};
+            let noise = {x: rand_normal() * SIGMA , y: rand_normal() * SIGMA};
             candidates.push(noise);
 
             let new_point = {x: agent.x + noise.x, y: agent.y + noise.y};
